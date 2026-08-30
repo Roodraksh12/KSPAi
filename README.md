@@ -20,7 +20,7 @@
 
 ### 🚀 Quick Links
 - **Live Deployment:** [https://kspai-zgymgiew.onslate.in/](https://kspai-zgymgiew.onslate.in/)
-- **Video Walkthrough:** [Watch on YouTube](https://youtu.be/_UJdQK79kRM)
+- **Video Walkthrough:** [Watch on YouTube](https://www.youtube.com/watch?v=ov4ANZjLUMc)
 
 > The deployed demo may not update at the exact same time as the `main` branch. For the absolute latest bleeding-edge functionality, run the repository locally.
 
