@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     openrouter_model: str = Field(default="", alias="OPENROUTER_MODEL")
     openrouter_zdr_required: bool = Field(default=True, alias="OPENROUTER_ZDR_REQUIRED")
     allowed_origins: str = Field(
-        default="http://localhost:5173,http://127.0.0.1:5173",
+        default="http://localhost:5173,http://127.0.0.1:5173,*",
         alias="ALLOWED_ORIGINS",
     )
     platform_managed_cors: bool = Field(default=False, alias="PLATFORM_MANAGED_CORS")

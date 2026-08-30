@@ -50,13 +50,23 @@ def create_app() -> FastAPI:
     # AppSail injects CORS headers at the platform edge. Local development does
     # not, so keep FastAPI CORS enabled unless the deployment explicitly opts out.
     if not settings.platform_managed_cors:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.allowed_origin_list,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        origins = settings.allowed_origin_list
+        if "*" in origins:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origin_regex=".*",
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+        else:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
 
     app.include_router(health.router)
     app.include_router(auth.router)
