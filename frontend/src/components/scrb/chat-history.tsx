@@ -36,7 +36,17 @@ export function ChatHistoryPanel({
   const load = useCallback(() => {
     setLoading(true);
     apiRequest("/api/chat/sessions")
-      .then((payload) => setSessions(payload.sessions || []))
+      .then((payload) => {
+        const uniqueSessions = [];
+        const seen = new Set();
+        for (const s of (payload.sessions || [])) {
+          if (!seen.has(s.id)) {
+            seen.add(s.id);
+            uniqueSessions.push(s);
+          }
+        }
+        setSessions(uniqueSessions);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
