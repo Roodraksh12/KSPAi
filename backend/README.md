@@ -14,7 +14,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Apply DB migrations in order (see `database/README.md`). The isolated hackathon
-test database currently progresses through migration **0017**; never apply the
+test database currently progresses through migration **0019**; never apply the
 experimental reporting/playbook migrations to the original shared round-one
 database.
 
@@ -27,6 +27,8 @@ database.
 .\.venv\Scripts\python.exe -m scripts.apply_0015
 .\.venv\Scripts\python.exe -m scripts.apply_0016
 .\.venv\Scripts\python.exe -m scripts.apply_0017
+.\.venv\Scripts\python.exe -m scripts.apply_0018
+.\.venv\Scripts\python.exe -m scripts.apply_0019
 .\.venv\Scripts\python.exe -m scripts.refresh_early_warnings
 ```
 
@@ -72,6 +74,14 @@ APP_PUBLIC_URL=http://localhost:5173
 ```
 
 If `SMTP_HOST` is empty, invite bodies are logged to the server console. Restart uvicorn after changing SMTP settings.
+
+## CORS by environment
+
+Local frontend and backend servers use different ports, so FastAPI CORS remains
+enabled by default using `ALLOWED_ORIGINS`. Zoho Catalyst AppSail supplies the
+edge headers itself; `app-config.json` therefore sets
+`PLATFORM_MANAGED_CORS=true` for that deployment. Do not copy that flag into the
+local `.env`, or browser requests from port 5173 to port 8000 will be blocked.
 
 ## AI provider
 
