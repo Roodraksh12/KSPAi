@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-open-blue?style=for-the-badge)](https://kspai-zgymgiew.onslate.in/)
-[![Demo Video](https://img.shields.io/badge/Demo_Video-YouTube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=ov4ANZjLUMc)
+[![Demo Video](https://img.shields.io/badge/Demo_Video-YouTube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=PsREYqTOMto)
 
 ![Status](https://img.shields.io/badge/status-hackathon_demo-orange)
 ![Frontend](https://img.shields.io/badge/frontend-React_18_%2B_Vite-blue)
@@ -20,7 +20,7 @@
 
 ### 🚀 Quick Links
 - **Live Deployment:** [https://kspai-zgymgiew.onslate.in/](https://kspai-zgymgiew.onslate.in/)
-- **Video Walkthrough:** [Watch on YouTube](https://www.youtube.com/watch?v=ov4ANZjLUMc)
+- **Video Walkthrough:** [Watch on YouTube](https://www.youtube.com/watch?v=PsREYqTOMto)
 
 > The deployed demo may not update at the exact same time as the `main` branch. For the absolute latest bleeding-edge functionality, run the repository locally.
 
