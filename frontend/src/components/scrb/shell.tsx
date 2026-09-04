@@ -262,7 +262,7 @@ export function Sidebar() {
   return (
     <aside className={cn(
       "hidden md:flex flex-col border-r border-hairline bg-ink text-white transition-all duration-200",
-      collapsed ? "w-16" : "w-60"
+      collapsed ? "w-16" : "w-64"
     )}>
       {/* Branding */}
       <div className={cn(
@@ -345,28 +345,28 @@ export function Sidebar() {
 
       {/* User */}
       <div className={cn(
-        "shrink-0 border-t border-white/10 p-3",
+        "shrink-0 border-t border-white/10 p-2.5",
         collapsed && "flex flex-col items-center gap-2"
       )}>
         <Link
           to="/profile"
           className={cn(
             "flex items-center rounded-xl transition-colors hover:bg-white/5",
-            collapsed ? "justify-center h-10 w-10" : "gap-3 px-3 py-2"
+            collapsed ? "justify-center h-10 w-10" : "gap-2.5 px-2 py-1.5"
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-[10px] font-bold text-white border border-white/20">
             {initials}
           </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-white truncate">{officerName}</span>
-                <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-teal uppercase tracking-wider">
+                <span className="text-xs font-semibold text-white truncate">{officerName}</span>
+                <span className="rounded bg-white/15 px-1 py-0.5 text-[8px] font-bold text-amber uppercase tracking-wider">
                   {roleBadge(role)}
                 </span>
               </div>
-              <span className="text-xs text-white/40 truncate">
+              <span className="text-[10px] text-white/50 truncate font-mono">
                 {session?.user?.badgeId || "KA-00000"}
               </span>
             </div>
