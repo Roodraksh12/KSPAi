@@ -6,6 +6,7 @@ import { IconOrb } from "./primitives";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { apiRequest } from "@/api/client";
+import { useI18n } from "@/lib/i18n";
 
 type SuggestedStep = { id: string; text: string; rationale: string };
 type SuggestionError = { kind: "disabled" | "unavailable"; message: string };
@@ -25,6 +26,7 @@ export function classifySuggestionError(error: unknown): SuggestionError {
 }
 
 export function PredictiveNextSteps({ caseId }: { caseId: string }) {
+  const { t } = useI18n();
   const [steps, setSteps] = useState<SuggestedStep[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<SuggestionError | null>(null);
@@ -71,8 +73,8 @@ export function PredictiveNextSteps({ caseId }: { caseId: string }) {
           <Sparkles className="h-4 w-4" />
         </IconOrb>
         <div>
-          <h3 className="font-semibold text-foreground leading-none">AI-assisted Investigation Suggestions</h3>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Review before acting</p>
+          <h3 className="font-semibold text-foreground leading-none">{t("dossier.aiSuggestions.title")}</h3>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{t("dossier.aiSuggestions.reviewBeforeActing")}</p>
         </div>
       </div>
 
@@ -86,7 +88,7 @@ export function PredictiveNextSteps({ caseId }: { caseId: string }) {
             className="flex flex-col items-center justify-center py-6 text-muted-foreground"
           >
             <Loader2 className="h-5 w-5 animate-spin mb-2" />
-            <span className="text-xs">Reviewing the available case record...</span>
+            <span className="text-xs">{t("dossier.aiSuggestions.reviewing")}</span>
           </motion.div>
         ) : error ? (
           <motion.div key={error.kind} className="rounded-2xl border border-amber/20 bg-amber/5 p-4">
@@ -94,7 +96,7 @@ export function PredictiveNextSteps({ caseId }: { caseId: string }) {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {error.kind === "disabled" ? "AI suggestions are disabled" : "AI suggestions are temporarily unavailable"}
+                  {error.kind === "disabled" ? t("dossier.aiSuggestions.disabled") : t("dossier.aiSuggestions.unavailable")}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{error.message}</p>
                 {error.kind === "unavailable" && (

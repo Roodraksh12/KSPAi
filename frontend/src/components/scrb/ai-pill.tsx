@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ExplainChips } from "@/components/scrb/explain-chips";
 import type { AiPrivacyMetadata } from "@/lib/store";
+import { isRomanizedKannada, transliterateKanglishToKannada } from "@/lib/scrb/kannada-transliterate";
 
 const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -20,14 +21,20 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
   useEffect(() => {
     if (!isListening) return;
     
-    let audioContext: AudioContext;
-    let analyzer: AnalyserNode;
-    let stream: MediaStream;
-    let animationFrame: number;
+    let isCancelled = false;
+    let audioContext: AudioContext | null = null;
+    let analyzer: AnalyserNode | null = null;
+    let stream: MediaStream | null = null;
+    let animationFrame: number | null = null;
     
     async function init() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (isCancelled) {
+          userStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        stream = userStream;
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         analyzer = audioContext.createAnalyser();
         analyzer.fftSize = 64;
@@ -36,6 +43,7 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
         const dataArray = new Uint8Array(analyzer.frequencyBinCount);
         
         const update = () => {
+          if (isCancelled || !analyzer) return;
           analyzer.getByteFrequencyData(dataArray);
           
           if (barsRef.current) {
@@ -51,7 +59,7 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
           animationFrame = requestAnimationFrame(update);
         };
         update();
-      } catch(e) {
+      } catch (e) {
         console.error("Audio API error:", e);
       }
     }
@@ -59,9 +67,16 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
     init();
     
     return () => {
+      isCancelled = true;
       if (animationFrame) cancelAnimationFrame(animationFrame);
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      if (audioContext && audioContext.state !== "closed") audioContext.close();
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+      }
+      if (audioContext && (audioContext as AudioContext).state !== "closed") {
+        (audioContext as AudioContext).close();
+        audioContext = null;
+      }
     };
   }, [isListening]);
 
@@ -155,9 +170,25 @@ export function AiPill() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [effectiveMode]);
 
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
   const toggleListen = () => {
     if (listening) {
-      recognitionRef.current?.stop();
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
       setListening(false);
       return;
     }
@@ -166,10 +197,18 @@ export function AiPill() {
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = document.documentElement.lang === "kn" ? "kn-IN" : "en-IN";
+    const savedVoiceLang = (typeof window !== "undefined" && localStorage.getItem("ksp_voice_input_lang")) || "kn-IN";
+    recognition.lang = savedVoiceLang;
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.onresult = (event: any) => setInput(event.results[0][0].transcript);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (isRomanizedKannada(transcript)) {
+        setInput(transliterateKanglishToKannada(transcript));
+      } else {
+        setInput(transcript);
+      }
+    };
     recognition.onerror = () => setListening(false);
     recognition.onend = () => setListening(false);
     recognitionRef.current = recognition;
@@ -182,8 +221,19 @@ export function AiPill() {
   };
 
   const submit = async () => {
+    if (listening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      setListening(false);
+    }
     if (!isTyping || loading) return;
-    const question = input.trim();
+    let question = input.trim();
+    if (isRomanizedKannada(question)) {
+      question = transliterateKanglishToKannada(question);
+    }
     setLoading(true);
     setError(null);
     setAnswer(null);

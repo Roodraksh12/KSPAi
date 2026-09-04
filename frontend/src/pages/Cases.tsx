@@ -6,9 +6,11 @@ import { CasesFilter } from "@/components/scrb/cases-filter";
 import { useAuth } from "@/context/AuthContext";
 import { DataLoadError } from "@/components/scrb/data-load-state";
 import { Button } from "@/components/scrb/primitives";
+import { useI18n } from "@/lib/i18n";
 
 export default function Cases() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const [cases, setCases] = useState<any[]>([]);
   const [stations, setStations] = useState<{ id: string; name: string; districtName?: string | null }[]>([]);
@@ -92,8 +94,8 @@ export default function Cases() {
   return (
     <div className="flex h-full flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Cases Directory</h1>
-        <p className="text-sm text-muted-foreground">Browse, filter, and manage all registered cases.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("cases.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("cases.subtitle")}</p>
       </div>
 
       <CasesFilter stations={stations} crimeTypes={crimeTypes} />
@@ -118,8 +120,8 @@ export default function Cases() {
       ) : !error && cases.length === 0 ? (
         <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-hairline bg-surface-2 shadow-sm">
           <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">No cases found matching your filters.</p>
-            <p className="text-xs text-muted-foreground/60">Try adjusting your search or filter criteria.</p>
+            <p className="text-sm text-muted-foreground">{t("cases.empty")}</p>
+            <p className="text-xs text-muted-foreground/60">{t("cases.emptyHint")}</p>
           </div>
         </div>
       ) : !error || cases.length > 0 ? (
@@ -132,7 +134,7 @@ export default function Cases() {
           {nextCursor && (
             <div className="flex justify-center">
               <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
-                {loadingMore ? "Loading more…" : "Load more cases"}
+                {loadingMore ? t("cases.loadingMore") : t("cases.loadMore")}
               </Button>
             </div>
           )}

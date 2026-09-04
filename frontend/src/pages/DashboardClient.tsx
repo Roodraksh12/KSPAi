@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Mic, Sparkles, ShieldCheck, ClipboardList, ExternalLink, TrendingUp, AlertTriangle, Activity, Briefcase, ChevronRight, FileText, MapPin, Volume2, VolumeX, FileDown, History, Plus, ShieldAlert, GitMerge, Clock, Copy, Edit2 } from "lucide-react";
+import { Send, Paperclip, Mic, Sparkles, ShieldCheck, ClipboardList, ExternalLink, TrendingUp, AlertTriangle, Activity, Briefcase, ChevronRight, FileText, MapPin, Volume2, VolumeX, Loader2, FileDown, History, Plus, ShieldAlert, GitMerge, Clock, Copy, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +16,7 @@ import { exportChatPdf } from "@/lib/scrb/chat-pdf";
 import { ChatHistoryPanel } from "@/components/scrb/chat-history";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
+import { isRomanizedKannada, transliterateKanglishToKannada } from "@/lib/scrb/kannada-transliterate";
 
 const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -23,14 +24,20 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
   useEffect(() => {
     if (!isListening) return;
 
-    let audioContext: AudioContext;
-    let analyzer: AnalyserNode;
-    let stream: MediaStream;
-    let animationFrame: number;
+    let isCancelled = false;
+    let audioContext: AudioContext | null = null;
+    let analyzer: AnalyserNode | null = null;
+    let stream: MediaStream | null = null;
+    let animationFrame: number | null = null;
 
     async function init() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (isCancelled) {
+          userStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        stream = userStream;
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         analyzer = audioContext.createAnalyser();
         analyzer.fftSize = 64;
@@ -39,6 +46,7 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
         const dataArray = new Uint8Array(analyzer.frequencyBinCount);
 
         const update = () => {
+          if (isCancelled || !analyzer) return;
           analyzer.getByteFrequencyData(dataArray);
 
           if (barsRef.current) {
@@ -64,9 +72,16 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
     init();
 
     return () => {
+      isCancelled = true;
       if (animationFrame) cancelAnimationFrame(animationFrame);
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-      if (audioContext) audioContext.close();
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+      }
+      if (audioContext && (audioContext as AudioContext).state !== "closed") {
+        (audioContext as AudioContext).close();
+        audioContext = null;
+      }
     };
   }, [isListening]);
 
@@ -84,14 +99,38 @@ const VoiceEqualizer = ({ isListening }: { isListening: boolean }) => {
   );
 };
 
-const DEFAULT_SUGGESTIONS = [
+const DEFAULT_SUGGESTIONS_EN = [
   "Which cases risk default bail this month?",
   "Brief me on open cases at my station",
   "What are the current hotspot alerts?",
 ];
 
-const GREETING =
+const DEFAULT_SUGGESTIONS_KN = [
+  "ಈ ತಿಂಗಳು ಶಾಸನಬದ್ಧ ಜಾಮೀನು (ಡೀಫಾಲ್ಟ್ ಜಾಮೀನು) ಅಪಾಯದಲ್ಲಿರುವ ಪ್ರಕರಣಗಳು ಯಾವುವು?",
+  "ನನ್ನ ಠಾಣೆಯ ಸಕ್ರಿಯ ಪ್ರಕರಣಗಳ ಸಂಕ್ಷಿಪ್ತ ವಿವರ ನೀಡಿ",
+  "ಪ್ರಸ್ತುತ ಇರುವ ಅಪರಾಧ ತಾಣಗಳ (ಹಾಟ್‌ಸ್ಪಾಟ್) ಎಚ್ಚರಿಕೆಗಳು ಯಾವುವು?",
+];
+
+const ACTIVE_CASE_SUGGESTIONS_EN = [
+  "Run full intake on this case",
+  "Show MO-similar cases",
+  "Give me the 24–72h checklist",
+  "Draft SP progress note",
+];
+
+const ACTIVE_CASE_SUGGESTIONS_KN = [
+  "ಈ ಪ್ರಕರಣದ ಸಂಪೂರ್ಣ ದಾಖಲಾತಿ ವಿವರ ನೀಡಿ",
+  "ಇದೇ ಅಪರಾಧ ವಿಧಾನದ (MO) ಇತರ ಪ್ರಕರಣಗಳನ್ನು ತೋರಿಸಿ",
+  "24–72 ಗಂಟೆಗಳ ತನಿಖಾ ಪರಿಶೀಲನಾ ಪಟ್ಟಿ ನೀಡಿ",
+  "ಎಸ್ಪಿ ಕಚೇರಿಗೆ ಪ್ರಗತಿ ಪರಿಶೀಲನಾ ಟಿಪ್ಪಣಿ ಸಿದ್ಧಪಡಿಸಿ",
+];
+
+const GREETING_EN =
   "Namaskara. I am the **Investigation Copilot**.\n\nAfter you **upload and save an FIR**, I will automatically run an **intake brief**: identity leads, MO-similar cases, legal framing, 24h checklist, and draft notes.\n\nYou can also open any case dossier and ask me to *run intake on this case*.";
+
+const GREETING_KN =
+  "ನಮಸ್ಕಾರ. ನಾನು **ತನಿಖಾ ಸಹಾಯಕ (Investigation Copilot)**.\n\nನೀವು **ಎಫ್‌ಐಆರ್ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ ಉಳಿಸಿದ ನಂತರ**, ನಾನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ **ಪ್ರಕರಣ ದಾಖಲಾತಿ ಸಂಕ್ಷಿಪ್ತ ವಿವರ (Intake Brief)** ಸಿದ್ಧಪಡಿಸುತ್ತೇನೆ: ಆರೋಪಿಗಳ ಸುಳಿವು, ಅಪರಾಧ ವಿಧಾನ (MO) ಹೋಲುವ ಪ್ರಕರಣಗಳು, ಅನ್ವಯವಾಗುವ ಕಾನೂನು ಕಲಂಗಳು, 24 ಗಂಟೆಗಳ ತನಿಖಾ ಪರಿಶೀಲನಾ ಪಟ್ಟಿ ಮತ್ತು ಕರಡು ಟಿಪ್ಪಣಿಗಳು.\n\nನೀವು ಯಾವುದೇ ಪ್ರಕರಣದ ವಿವರಗಳನ್ನು ತೆರೆದು *ಈ ಪ್ರಕರಣದ ದಾಖಲಾತಿ ವಿವರ ನೀಡಿ* ಎಂದೂ ಕೇಳಬಹುದು.";
+
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: "text-teal",
@@ -155,9 +194,17 @@ export function DashboardClient({
   const [searchParams] = useSearchParams();
   const isIntake = searchParams.get("intake") === "1";
 
+  const currentGreeting = lang === "KN" ? GREETING_KN : GREETING_EN;
+
   const [messages, setMessages] = useState<ChatMessage[]>(
-    chatHistory && chatHistory.length > 0 ? chatHistory : [{ role: "assistant", content: GREETING }]
+    chatHistory && chatHistory.length > 0 ? chatHistory : [{ role: "assistant", content: currentGreeting }]
   );
+
+  useEffect(() => {
+    if (messages.length === 1 && (messages[0].content === GREETING_EN || messages[0].content === GREETING_KN)) {
+      setMessages([{ role: "assistant", content: currentGreeting }]);
+    }
+  }, [lang, currentGreeting]);
 
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -179,6 +226,32 @@ export function DashboardClient({
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  // Independent voice recognition language (defaults to Kannada kn-IN, persisted across sessions)
+  const [voiceLang, setVoiceLang] = useState<"kn-IN" | "en-IN">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ksp_voice_input_lang");
+      if (saved === "kn-IN" || saved === "en-IN") return saved;
+    }
+    return "kn-IN";
+  });
+
+  const toggleVoiceLang = () => {
+    const next = voiceLang === "kn-IN" ? "en-IN" : "kn-IN";
+    setVoiceLang(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ksp_voice_input_lang", next);
+    }
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+    }
+    toast.info(next === "kn-IN" ? "ಧ್ವನಿ ಭಾಷೆ: ಕನ್ನಡ (kn-IN)" : "Voice language: English (en-IN)");
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -187,7 +260,14 @@ export function DashboardClient({
       recognitionRef.current.interimResults = false;
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
-        setInput((prev) => (prev ? prev + " " : "") + transcript);
+        // If recognized text is Romanized Kannada (Kanglish), automatically convert to Kannada script!
+        if (isRomanizedKannada(transcript)) {
+          const kannadaText = transliterateKanglishToKannada(transcript);
+          setInput((prev) => (prev ? prev + " " : "") + kannadaText);
+          toast.info(t("copilot.kannadaConverted") || "ಕನ್ನಡ ಲಿಪಿಗೆ ಪರಿವರ್ತಿಸಲಾಗಿದೆ");
+        } else {
+          setInput((prev) => (prev ? prev + " " : "") + transcript);
+        }
       };
       recognitionRef.current.onerror = (event: any) => {
         setIsListening(false);
@@ -199,16 +279,34 @@ export function DashboardClient({
       };
       recognitionRef.current.onend = () => { setIsListening(false); };
     }
-  }, []);
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [t]);
 
   const toggleListen = () => {
-    if (isListening) { recognitionRef.current?.stop(); return; }
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+      return;
+    }
     if (!recognitionRef.current) {
       toast.error("Voice recognition is not supported in this browser. Try Google Chrome or Microsoft Edge.");
       return;
     }
     try {
-      recognitionRef.current.lang = lang === "KN" ? "kn-IN" : "en-IN";
+      recognitionRef.current.lang = voiceLang;
       recognitionRef.current.start();
       setIsListening(true);
     } catch {
@@ -218,10 +316,22 @@ export function DashboardClient({
   };
 
   const handleSend = async (customMessage?: string) => {
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+    }
     const textToSend = customMessage || input;
     if (!textToSend?.trim() || isLoading) return;
     setInput("");
-    const userMessage = textToSend.trim();
+    let userMessage = textToSend.trim();
+    // If the message is in Romanized Kannada (Kanglish), automatically convert to Kannada script
+    if (isRomanizedKannada(userMessage)) {
+      userMessage = transliterateKanglishToKannada(userMessage);
+    }
     const updatedMessages = [...messages, { role: "user", content: userMessage }] as ChatMessage[];
     setMessages(updatedMessages);
     setChatHistory(updatedMessages);
@@ -255,20 +365,20 @@ export function DashboardClient({
 
   const handleNewChat = () => {
     startNewSession();
-    setMessages([{ role: "assistant", content: GREETING }]);
+    setMessages([{ role: "assistant", content: currentGreeting }]);
     setInput("");
   };
 
   const handleLoadSession = (loadedId: string, loaded: ChatMessage[]) => {
     loadSession(loadedId, loaded);
-    setMessages(loaded.length > 0 ? loaded : [{ role: "assistant", content: GREETING }]);
+    setMessages(loaded.length > 0 ? loaded : [{ role: "assistant", content: currentGreeting }]);
   };
 
   const chips = intakeActionPrompts.length > 0
     ? intakeActionPrompts
     : activeCaseId
-      ? ["Run full intake on this case", "Show MO-similar cases", "Give me the 24–72h checklist", "Draft SP progress note"]
-      : DEFAULT_SUGGESTIONS;
+      ? (lang === "KN" ? ACTIVE_CASE_SUGGESTIONS_KN : ACTIVE_CASE_SUGGESTIONS_EN)
+      : (lang === "KN" ? DEFAULT_SUGGESTIONS_KN : DEFAULT_SUGGESTIONS_EN);
 
   const showChips = !isLoading && (messages.length <= 2 || isIntake);
 
@@ -294,7 +404,11 @@ export function DashboardClient({
             className="flex items-center gap-2 mb-4 rounded-2xl border border-amber/20 bg-amber/[0.08] px-4 py-2.5 text-sm text-amber hover:bg-amber/[0.12] transition-colors"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span className="flex-1">{alertCount} high-risk alert{alertCount > 1 ? "s" : ""} active in your jurisdiction</span>
+            <span className="flex-1">
+              {lang === "KN"
+                ? `${alertCount} ಹೆಚ್ಚು ಅಪಾಯದ ಎಚ್ಚರಿಕೆಗಳು ನಿಮ್ಮ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ಸಕ್ರಿಯವಾಗಿವೆ`
+                : `${alertCount} high-risk alert${alertCount > 1 ? "s" : ""} active in your jurisdiction`}
+            </span>
             <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
           </Link>
         )}
@@ -374,8 +488,12 @@ export function DashboardClient({
                         </div>
                         {msg.role === "assistant" && (msg.kind === "intake" || (isIntake && i === 0)) && (
                           <div className="flex flex-wrap items-center gap-2 px-1">
-                            <span className="px-2 py-0.5 rounded-md bg-teal/10 text-teal text-[10px] font-medium">Post-upload intake</span>
-                            <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-mono">Leads only · Confirm before filing</span>
+                            <span className="px-2 py-0.5 rounded-md bg-teal/10 text-teal text-[10px] font-medium">
+                              {lang === "KN" ? "ದಾಖಲಾತಿ ವಿವರ" : "Post-upload intake"}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[10px] font-mono">
+                              {lang === "KN" ? "ಸುಳಿವು ಮಾತ್ರ · ದಾಖಲಿಸುವ ಮುನ್ನ ದೃಢೀಕರಿಸಿ" : "Leads only · Confirm before filing"}
+                            </span>
                           </div>
                         )}
                         {msg.role === "assistant" && (msg.toolsUsed?.length || msg.sources?.length || msg.privacy) ? (
@@ -392,13 +510,17 @@ export function DashboardClient({
                             onClick={() => speech.toggle(`msg-${i}`, msg.content)}
                             className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-lg border border-hairline bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shadow-sm"
                           >
-                            {speech.speakingId === `msg-${i}` ? (
+                            {speech.loadingId === `msg-${i}` ? (
                               <>
-                                <VolumeX className="h-3.5 w-3.5" /> Stop Reading
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-teal" /> {t("copilot.loadingAudio")}
+                              </>
+                            ) : speech.speakingId === `msg-${i}` ? (
+                              <>
+                                <VolumeX className="h-3.5 w-3.5 text-teal" /> {t("copilot.stop")}
                               </>
                             ) : (
                               <>
-                                <Volume2 className="h-3.5 w-3.5" /> Read Aloud
+                                <Volume2 className="h-3.5 w-3.5" /> {t("copilot.listen")}
                               </>
                             )}
                           </button>
@@ -473,6 +595,25 @@ export function DashboardClient({
                   ))}
                 </div>
               )}
+              {/* Kanglish detection & 1-click conversion banner if typed */}
+              {!isListening && isRomanizedKannada(input) && (
+                <div className="mb-2 flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="truncate">
+                      {t("copilot.convertToKannada")}: <strong>{transliterateKanglishToKannada(input).slice(0, 45)}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInput(transliterateKanglishToKannada(input))}
+                    className="ml-2 shrink-0 px-2.5 py-0.5 rounded-md bg-amber-500 text-white hover:bg-amber-600 font-medium text-[11px] transition-colors shadow-xs"
+                  >
+                    {t("copilot.convertToKannada")}
+                  </button>
+                </div>
+              )}
+
               <form
                 onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                 className="flex items-center gap-2 bg-surface p-1.5 rounded-2xl border border-hairline transition-all duration-200 focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-muted shadow-sm"
@@ -489,7 +630,9 @@ export function DashboardClient({
                 />
                 {isListening ? (
                   <div className="flex-1 flex items-center gap-3 px-2">
-                    <span className="text-sm font-medium text-teal animate-pulse">Listening...</span>
+                    <span className="text-sm font-medium text-teal animate-pulse">
+                      {voiceLang === "kn-IN" ? t("copilot.listeningKn") : t("copilot.listeningEn")}
+                    </span>
                     <VoiceEqualizer isListening={isListening} />
                   </div>
                 ) : (
@@ -502,7 +645,24 @@ export function DashboardClient({
                   />
                 )}
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* Dedicated 1-tap Voice Recognition Language Switcher */}
+                  <button
+                    type="button"
+                    onClick={toggleVoiceLang}
+                    title={`${t("copilot.voiceLang")}: ${voiceLang === "kn-IN" ? "ಕನ್ನಡ (kn-IN)" : "English (en-IN)"}`}
+                    className={cn(
+                      "h-8 px-2.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1",
+                      voiceLang === "kn-IN"
+                        ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/25"
+                        : "bg-surface-2 text-muted-foreground border-hairline hover:text-foreground hover:bg-surface-3"
+                    )}
+                  >
+                    <span className="text-[10px] uppercase font-mono tracking-wider opacity-70">MIC</span>
+                    <span className="font-bold">{voiceLang === "kn-IN" ? "ಕನ್ನಡ" : "EN"}</span>
+                  </button>
+
                   <button type="button" onClick={toggleListen}
+                    title={isListening ? "Stop listening" : `${t("copilot.voiceLang")}: ${voiceLang === "kn-IN" ? "ಕನ್ನಡ" : "English"}`}
                     className={cn("h-10 w-10 flex items-center justify-center rounded-xl transition-colors", isListening ? "text-teal bg-teal/10" : "text-muted-foreground hover:text-foreground")}
                   >
                     <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />

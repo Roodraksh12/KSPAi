@@ -71,6 +71,13 @@ async def add_evidence(
     if type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid evidence type. Must be one of: {', '.join(valid_types)}")
 
+    TYPE_EXTENSIONS = {
+        "PHOTO": {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif", ".heic", ".heif", ".svg"},
+        "VIDEO": {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp", ".flv", ".wmv", ".m4v", ".ts"},
+        "VOICE": {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma", ".amr", ".opus", ".weba"},
+        "FORENSIC": {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt", ".json", ".raw", ".dd", ".e01", ".zip", ".tar", ".gz", ".7z", ".rar", ".xml"},
+    }
+
     if len(files) > MAX_EVIDENCE_FILES:
         raise HTTPException(status_code=413, detail="Attach at most 5 evidence files at once.")
 
@@ -78,19 +85,26 @@ async def add_evidence(
     for file in files:
         if not file.filename:
             continue
+        safe_name = Path(file.filename).name
+        file_suffix = Path(safe_name).suffix.lower()
+        if type in TYPE_EXTENSIONS and file_suffix not in TYPE_EXTENSIONS[type]:
+            allowed_str = ", ".join(sorted(TYPE_EXTENSIONS[type]))
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{safe_name}' is not allowed for {type} evidence. Allowed extensions: {allowed_str}"
+            )
         content = await file.read(MAX_EVIDENCE_FILE_BYTES + 1)
         if len(content) > MAX_EVIDENCE_FILE_BYTES:
             raise HTTPException(
                 status_code=413,
-                detail=f"Evidence file '{Path(file.filename).name}' exceeds 20 MB.",
+                detail=f"Evidence file '{safe_name}' exceeds 20 MB.",
             )
         if not content:
             raise HTTPException(
                 status_code=400,
-                detail=f"Evidence file '{Path(file.filename).name}' is empty.",
+                detail=f"Evidence file '{safe_name}' is empty.",
             )
-        safe_name = Path(file.filename).name
-        prepared_files.append((safe_name, Path(safe_name).suffix[:16], content))
+        prepared_files.append((safe_name, file_suffix[:16], content))
 
     ev_id = new_id()
     now = datetime.now(timezone.utc)

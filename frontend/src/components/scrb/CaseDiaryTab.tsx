@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { HighlightText } from "@/components/scrb/HighlightText";
+import { isRomanizedKannada, transliterateKanglishToKannada } from "@/lib/scrb/kannada-transliterate";
 
 const DIARY_TIME_ZONE = "Asia/Kolkata";
 
@@ -341,6 +342,27 @@ function AddEntryForm({ caseId, initialData, onCancel, onSuccess }: { caseId: st
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [diaryVoiceLang, setDiaryVoiceLang] = useState<"kn-IN" | "en-IN">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ksp_voice_input_lang");
+      if (saved === "kn-IN" || saved === "en-IN") return saved;
+    }
+    return "kn-IN";
+  });
+
+  const toggleDiaryVoiceLang = () => {
+    const next = diaryVoiceLang === "kn-IN" ? "en-IN" : "kn-IN";
+    setDiaryVoiceLang(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ksp_voice_input_lang", next);
+    }
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    }
+    toast.info(next === "kn-IN" ? "ಧ್ವನಿ ವಿವರಣೆ: ಕನ್ನಡ (kn-IN)" : "Dictation language: English (en-IN)");
+  };
+
   const startRecording = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -350,7 +372,7 @@ function AddEntryForm({ caseId, initialData, onCancel, onSuccess }: { caseId: st
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-IN";
+    recognition.lang = diaryVoiceLang;
 
     recognition.onresult = (event: any) => {
       let interimTranscript = "";
@@ -365,7 +387,11 @@ function AddEntryForm({ caseId, initialData, onCancel, onSuccess }: { caseId: st
       }
       
       if (finalTranscript) {
-        setNarrative(prev => prev + (prev ? " " : "") + finalTranscript);
+        let processed = finalTranscript;
+        if (isRomanizedKannada(processed)) {
+          processed = transliterateKanglishToKannada(processed);
+        }
+        setNarrative(prev => prev + (prev ? " " : "") + processed);
       }
     };
 
@@ -536,7 +562,18 @@ function AddEntryForm({ caseId, initialData, onCancel, onSuccess }: { caseId: st
               className={isRecording ? "border-red-500 text-red-500 hover:bg-red-500/10" : ""}
             >
               {isRecording ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
-              {isRecording ? "Stop Recording" : "Record Dictation"}
+              {isRecording ? "Stop Recording" : `Record Dictation (${diaryVoiceLang === "kn-IN" ? "ಕನ್ನಡ" : "EN"})`}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={toggleDiaryVoiceLang}
+              className="h-9 px-2.5 text-xs font-semibold border border-hairline hover:bg-surface-2"
+              title="Toggle dictation language between Kannada and English"
+            >
+              <span className="text-[10px] text-muted-foreground mr-1">MIC:</span>
+              <span className="font-bold">{diaryVoiceLang === "kn-IN" ? "ಕನ್ನಡ" : "ENG"}</span>
             </Button>
           </div>
           {documents.length > 0 && (

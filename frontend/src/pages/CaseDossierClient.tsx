@@ -37,21 +37,23 @@ import { ReportDataTab } from "@/components/scrb/ReportDataTab";
 import { InvestigationPlanTab } from "@/components/scrb/InvestigationPlanTab";
 import { normalizeNetworkFocusId } from "@/lib/scrb/graph-view";
 import { FirDocumentTab } from "@/components/scrb/FirDocumentTab";
+import { useI18n } from "@/lib/i18n";
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: FileText },
-  { id: "fir-document", label: "Original FIR", icon: FileSearch },
-  { id: "timeline", label: "Timeline", icon: GitBranch },
-  { id: "diary", label: "Case Diary", icon: BookOpen },
-  { id: "investigation-plan", label: "Investigation Plan", icon: ListChecks },
-  { id: "report-data", label: "Report Data", icon: ClipboardList },
-  { id: "connections", label: "Connections", icon: Share2 },
-  { id: "evidence", label: "Evidence", icon: ImageIcon },
-  { id: "matches", label: "Matches", icon: Users },
+  { id: "overview", labelKey: "dossier.tabs.overview", icon: FileText },
+  { id: "fir-document", labelKey: "dossier.tabs.originalFir", icon: FileSearch },
+  { id: "timeline", labelKey: "dossier.tabs.timeline", icon: GitBranch },
+  { id: "diary", labelKey: "dossier.tabs.diary", icon: BookOpen },
+  { id: "investigation-plan", labelKey: "dossier.tabs.plan", icon: ListChecks },
+  { id: "report-data", labelKey: "dossier.tabs.reportData", icon: ClipboardList },
+  { id: "connections", labelKey: "dossier.tabs.connections", icon: Share2 },
+  { id: "evidence", labelKey: "dossier.tabs.evidence", icon: ImageIcon },
+  { id: "matches", labelKey: "dossier.tabs.matches", icon: Users },
 ] as const;
 
 export default function CaseDossierClient({ caseData }: { caseData: any }) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const highlight = searchParams.get("highlight");
 
@@ -171,13 +173,17 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
       setMatches((prev: any[]) =>
         prev.map((m) => (m.id === matchId ? { ...m, status } : m))
       );
-      toast.success(status === "CONFIRMED" ? "Match confirmed" : "Match rejected");
+      toast.success(status === "CONFIRMED" ? t("dossier.matches.confirmed") : t("dossier.matches.rejected"));
     } catch (e: any) {
-      toast.error(e.message || "Failed to update match");
+      toast.error(e.message || t("dossier.matches.failedUpdate"));
     } finally {
       setBusy(null);
     }
   };
+
+  const statusLabel = t(`dossier.status.${c.status}`) !== `dossier.status.${c.status}`
+    ? t(`dossier.status.${c.status}`)
+    : c.status.replace("_", " ");
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
@@ -186,11 +192,11 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
           to="/cases"
           className="glass inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> All cases
+          <ArrowLeft className="h-3.5 w-3.5" /> {t("dossier.actions.allCases")}
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={c.status === "OPEN" || c.status === "UNDER_INVESTIGATION" ? "teal" : "amber"}>
-            {c.status.replace("_", " ")}
+            {statusLabel}
           </Badge>
           <Badge tone="muted">
             <span className="text-mono">{c.firNumber}</span>
@@ -206,7 +212,7 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
             </SectionLabel>
             <h1 className="text-display mt-1 text-3xl">{c.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {c.crimeType} · Reported {c.date}
+              {c.crimeType} · {t("dossier.reported")} {c.date}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -217,7 +223,7 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
                 onClick={() => setShowEvidenceForm(true)}
               >
                 <ImageIcon className="h-4 w-4 mr-1.5" />
-                Add/Update Evidence
+                {t("dossier.actions.addEvidence")}
               </Button>
             )}
             <Button
@@ -231,17 +237,17 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
               ) : (
                 <Sparkles className="h-4 w-4 mr-1.5" />
               )}
-              Run intake in Copilot
+              {t("dossier.actions.runIntake")}
             </Button>
             <Button variant="primary" size="md" onClick={draftUpdate} disabled={busy === "draft"}>
               {busy === "draft" ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
               ) : null}
-              Draft update
+              {t("dossier.actions.draftUpdate")}
             </Button>
             <Button variant="secondary" size="md" onClick={() => setShowChargesheet(true)}>
               <ScrollText className="h-4 w-4 mr-1.5" />
-              FR - Final Report
+              {t("dossier.actions.finalReport")}
             </Button>
           </div>
         </div>
@@ -256,19 +262,19 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
         </div>
 
         <div className="glass mt-6 inline-flex rounded-2xl p-1 overflow-x-auto max-w-full custom-scrollbar">
-          {TABS.map((t) => (
+          {TABS.map((tItem) => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tItem.id}
+              onClick={() => setTab(tItem.id)}
               className={cn(
                 "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition whitespace-nowrap",
-                tab === t.id
+                tab === tItem.id
                   ? "bg-muted text-foreground shadow-inner"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <t.icon className="h-3.5 w-3.5" /> {t.label}
-              {t.id === "matches" && matches.filter((m: any) => m.status === "PENDING").length > 0 && (
+              <tItem.icon className="h-3.5 w-3.5" /> {t(tItem.labelKey)}
+              {tItem.id === "matches" && matches.filter((m: any) => m.status === "PENDING").length > 0 && (
                 <span className="ml-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 px-1.5 text-[10px]">
                   {matches.filter((m: any) => m.status === "PENDING").length}
                 </span>
@@ -318,11 +324,12 @@ export default function CaseDossierClient({ caseData }: { caseData: any }) {
 }
 
 function Overview({ c, rawExtractedText, highlight }: { c: any; rawExtractedText?: string; highlight?: string | null }) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="glass rounded-3xl p-5 lg:col-span-2 space-y-6">
         <div>
-          <SectionLabel className="mb-2">Summary</SectionLabel>
+          <SectionLabel className="mb-2">{t("dossier.summary")}</SectionLabel>
           <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
             <HighlightText text={c.summary} query={highlight} />
           </p>
@@ -330,7 +337,7 @@ function Overview({ c, rawExtractedText, highlight }: { c: any; rawExtractedText
 
         {rawExtractedText && (
           <div>
-            <SectionLabel className="mb-2">Extracted OCR Data</SectionLabel>
+            <SectionLabel className="mb-2">{t("dossier.extractedOcr")}</SectionLabel>
             <div className="glass rounded-2xl p-4 text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto custom-scrollbar">
               <HighlightText text={rawExtractedText} query={highlight} />
             </div>
@@ -343,16 +350,19 @@ function Overview({ c, rawExtractedText, highlight }: { c: any; rawExtractedText
         <LegalSectionsPanel caseId={c.id} />
 
         <div className="glass rounded-3xl p-5">
-          <SectionLabel className="mb-2">Entities</SectionLabel>
+          <SectionLabel className="mb-2">{t("dossier.entities")}</SectionLabel>
           <ul className="space-y-2">
-            {c.casePersons.map((cp: any, i: number) => (
-              <li key={i} className="glass flex items-center justify-between rounded-2xl px-3 py-2 text-mono text-xs">
-                <HighlightText text={cp.person.name} query={highlight} />
-                <Badge tone={cp.role === "ACCUSED" ? "danger" : cp.role === "VICTIM" ? "amber" : "muted"}>{cp.role}</Badge>
-              </li>
-            ))}
+            {c.casePersons.map((cp: any, i: number) => {
+              const roleLabel = t(`dossier.role.${cp.role}`) !== `dossier.role.${cp.role}` ? t(`dossier.role.${cp.role}`) : cp.role;
+              return (
+                <li key={i} className="glass flex items-center justify-between rounded-2xl px-3 py-2 text-mono text-xs">
+                  <HighlightText text={cp.person.name} query={highlight} />
+                  <Badge tone={cp.role === "ACCUSED" ? "danger" : cp.role === "VICTIM" ? "amber" : "muted"}>{roleLabel}</Badge>
+                </li>
+              );
+            })}
             {c.casePersons.length === 0 && (
-              <li className="text-xs text-muted-foreground">No entities extracted.</li>
+              <li className="text-xs text-muted-foreground">{t("dossier.noEntities")}</li>
             )}
           </ul>
         </div>
@@ -362,9 +372,10 @@ function Overview({ c, rawExtractedText, highlight }: { c: any; rawExtractedText
 }
 
 function Timeline({ caseData }: { caseData: any }) {
+  const { t } = useI18n();
   const items = [
-    { date: new Date(caseData.incidentDate), label: "Incident occurred" },
-    { date: new Date(caseData.reportedDate), label: "FIR Registered" },
+    { date: new Date(caseData.incidentDate), label: t("dossier.timeline.incidentOccurred") },
+    { date: new Date(caseData.reportedDate), label: t("dossier.timeline.firRegistered") },
   ];
   return (
     <ol className="relative ml-4 space-y-4 border-l border-hairline pl-6">
@@ -385,16 +396,17 @@ function Timeline({ caseData }: { caseData: any }) {
 }
 
 function Connections({ caseId }: { caseId: string }) {
+  const { t } = useI18n();
   const focusId = normalizeNetworkFocusId(caseId);
   const networkUrl = `/network?${new URLSearchParams({ focusId: focusId || caseId }).toString()}`;
   return (
     <div className="glass rounded-3xl p-4">
       <p className="text-sm text-muted-foreground">
-        Interactive graph available on the Network canvas.
+        {t("dossier.connections.canvasNotice")}
       </p>
       <Link to={networkUrl} className="mt-3 inline-flex">
         <Button variant="secondary" size="sm">
-          Open network canvas
+          {t("dossier.connections.openCanvas")}
         </Button>
       </Link>
     </div>
@@ -410,12 +422,13 @@ function Matches({
   busy: string | null;
   onUpdate: (matchId: string, status: "CONFIRMED" | "REJECTED") => void;
 }) {
+  const { t } = useI18n();
   if (!matches || matches.length === 0) {
     return (
       <div className="glass rounded-3xl p-8 text-center space-y-3">
-        <p className="text-sm text-muted-foreground">No cross-case matches detected yet.</p>
+        <p className="text-sm text-muted-foreground">{t("dossier.matches.noMatches")}</p>
         <p className="text-xs text-muted-foreground">
-          Use <strong>Run intake in Copilot</strong> to scan identity and MO leads.
+          {t("dossier.matches.noMatchesHint")}
         </p>
       </div>
     );
@@ -425,10 +438,11 @@ function Matches({
     <div className="space-y-3">
       {matches.map((m: any) => {
         const name =
-          m.matchedCase?.firNumber || m.matchedPerson?.name || "Behavioral / MO match";
+          m.matchedCase?.firNumber || m.matchedPerson?.name || t("dossier.matches.moMatch");
         const isMoMatch = String(m.reason || "").includes("MO_SIMILAR") ||
           String(m.reason || "").includes("Behavioral");
         const status = m.status || "PENDING";
+        const statusDisplay = t(`dossier.status.${status}`) !== `dossier.status.${status}` ? t(`dossier.status.${status}`) : status;
 
         return (
           <div key={m.id} className="glass flex flex-wrap items-center gap-3 rounded-3xl p-4">
@@ -443,7 +457,7 @@ function Matches({
                     status === "CONFIRMED" ? "teal" : status === "REJECTED" ? "muted" : "amber"
                   }
                 >
-                  {status}
+                  {statusDisplay}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{m.reason}</p>
@@ -456,7 +470,7 @@ function Matches({
                 />
               </div>
               <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                {m.confidenceScore}% match · lead only
+                {m.confidenceScore}% {t("dossier.matches.leadOnly")}
               </p>
             </div>
             {status === "PENDING" && (
@@ -472,7 +486,7 @@ function Matches({
                   ) : (
                     <Check className="h-3 w-3" />
                   )}{" "}
-                  Confirm
+                  {t("dossier.matches.confirm")}
                 </button>
                 <button
                   type="button"
@@ -480,7 +494,7 @@ function Matches({
                   onClick={() => onUpdate(m.id, "REJECTED")}
                   className="glass inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-muted-foreground hover:brightness-125 disabled:opacity-50"
                 >
-                  <X className="h-3 w-3" /> Reject
+                  <X className="h-3 w-3" /> {t("dossier.matches.reject")}
                 </button>
               </div>
             )}
